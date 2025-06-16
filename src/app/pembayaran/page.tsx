@@ -125,10 +125,10 @@ export default function FinalPembayaranPage() {
             <div className="w-full max-w-lg bg-white p-8 rounded-2xl shadow-2xl">
                 <div className="text-center mb-8">
                     <Image
-                        src="/logo-pmi.png"
+                        src="/logo-pmi.jpg"
                         alt="Logo PMI"
-                        width={96}
-                        height={96}
+                        width={200}
+                        height={200}
                         className="mx-auto mb-4"
                     />
                     <h1 className="text-3xl font-bold text-zinc-900">Konfirmasi Pembayaran</h1>

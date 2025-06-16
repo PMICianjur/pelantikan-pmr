@@ -190,10 +190,10 @@ const handlePhotoUpload = (e: ChangeEvent<HTMLInputElement>) => {
         <div className="w-full max-w-2xl">
           <div className="text-center mb-8">
            <Image
-              src="/logo-pmi.png"
+              src="/logo-pmi.jpg"
               alt="Logo PMI"
-              width={80}
-              height={80}
+              width={200}
+              height={200}
               className="mx-auto mb-4"
             />
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-zinc-900">Pendaftaran Pelantikan & Pelatihan PMR Tingkat Wira dan Madya <br />Se-Kabupaten Cianjur</h1>
