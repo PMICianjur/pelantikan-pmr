@@ -80,7 +80,7 @@ export default function HomePage() {
             <div className="bg-red-50 rounded-3xl p-8 transform rotate-3 hover:rotate-0 transition-transform duration-500">
                   <Image 
                     src="/ilustrasi-hero.jpg" 
-                    alt="Ilustrasi PMR Ceria"
+                    alt="ilustrasi PMR Ceria"
                     width={500} // Beri dimensi placeholder, styling akan membuatnya responsif
                     height={500}
                     className="w-full h-auto"
