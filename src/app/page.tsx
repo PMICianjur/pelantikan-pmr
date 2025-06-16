@@ -79,8 +79,8 @@ export default function HomePage() {
           <div className="hidden lg:block animate-fade-in-delay">
             <div className="bg-red-50 rounded-3xl p-8 transform rotate-3 hover:rotate-0 transition-transform duration-500">
                   <Image 
-                    src="/ilustrasi-hero.jpg" 
-                    alt="ilustrasi PMR Ceria"
+                    src="/background.jpg" 
+                    alt="background"
                     width={500} // Beri dimensi placeholder, styling akan membuatnya responsif
                     height={500}
                     className="w-full h-auto"
