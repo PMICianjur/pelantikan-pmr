@@ -39,7 +39,7 @@ export default function HomePage() {
       
       {/* ===== Hero Section Dengan Background ===== */}
       <main 
-        className="relative bg-cover bg-center bg-no-repeat py-10 sm:py-15 lg:py-15"
+        className="relative bg-cover bg-center bg-no-repeat bg-fixed py-10 sm:py-15 lg:py-15"
         style={{
           // Terapkan gambar background dengan lapisan gelap untuk kontras teks
           backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('/background.jpg')`
