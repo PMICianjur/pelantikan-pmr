@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     }
 
     const snap = new Midtrans.Snap({
-      isProduction: true,
+      isProduction: false,
       serverKey: serverKey,
       clientKey: clientKey,
     });

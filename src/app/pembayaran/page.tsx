@@ -51,7 +51,7 @@ export default function MidtransPaymentPage() {
     useEffect(() => {
         // Load script Midtrans Snap
         const script = document.createElement('script');
-        script.src = "https://app.midtrans.com/snap/snap.js"; // Ganti ke URL produksi jika sudah live
+        script.src = "https://app.sandbox.midtrans.com/snap/snap.js"; // Ganti ke URL produksi jika sudah live
         script.setAttribute('data-client-key', process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY!);
         script.async = true;
         document.body.appendChild(script);

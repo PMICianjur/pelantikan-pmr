@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     // Inisialisasi Midtrans Snap
     const snap = new Midtrans.Snap({
       // Ganti ke `true` saat website Anda sudah siap menerima pembayaran sungguhan
-      isProduction: true,
+      isProduction: false,
       serverKey: serverKey,
       clientKey: clientKey
     });
