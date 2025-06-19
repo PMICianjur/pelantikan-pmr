@@ -27,8 +27,8 @@ type LahanState = {
 }
 
 // Definisikan Harga sebagai konstanta
-const HARGA_PESERTA = 35000;
-const HARGA_PENDAMPING = 15000;
+const HARGA_PESERTA = 10;
+const HARGA_PENDAMPING = 10;
 const NAMA_TENDA_PANITIA: { [key: string]: string } = {
     '50': 'Tenda Pleton (Kapasitas 50)',
     '20': 'Tenda Regu (Kapasitas 20)',

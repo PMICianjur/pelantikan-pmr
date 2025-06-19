@@ -2,55 +2,39 @@ import { NextResponse } from 'next/server';
 import Midtrans from 'midtrans-client';
 
 export async function POST(request: Request) {
-  try {
-    const { order_id, gross_amount, customer_details } = await request.json();
+  const { order_id, gross_amount, customer_details } = await request.json();
 
-    // Validasi data yang masuk
-    if (!order_id || !gross_amount || !customer_details) {
-      return NextResponse.json({ error: 'Data tidak lengkap untuk membuat transaksi.' }, { status: 400 });
-    }
+  const serverKey = process.env.MIDTRANS_SERVER_KEY;
+  const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY;
 
-    // Ambil kunci API dari environment variables
-    const serverKey = process.env.MIDTRANS_SERVER_KEY;
-    const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY;
-
-    // Pastikan kunci API ada untuk mencegah error saat build/runtime
-    if (!serverKey || !clientKey) {
-      console.error("Kunci API Midtrans tidak lengkap di server.");
-      return NextResponse.json({ error: "Konfigurasi server error." }, { status: 500 });
-    }
-    
-    // Inisialisasi Midtrans Snap
-    const snap = new Midtrans.Snap({
-      // Ganti ke `true` saat website Anda sudah siap menerima pembayaran sungguhan
-      isProduction: false,
-      serverKey: serverKey,
-      clientKey: clientKey
-    });
-
-    // --- PERUBAHAN DI SINI ---
-    // Siapkan parameter transaksi tanpa properti `enabled_payments`
-    const parameter = {
-      transaction_details: {
-        order_id: order_id,
-        gross_amount: gross_amount
-      },
-      customer_details: customer_details,
-    };
-    // --- AKHIR PERUBAHAN ---
+  if (!serverKey || !clientKey) {
+    console.error("Missing Midtrans environment variables");
+    return NextResponse.json({ error: "Server configuration error." }, { status: 500 });
+  }
   
-    // Buat token transaksi
-    const transaction = await snap.createTransactionToken(parameter);
-    console.log(`Midtrans token berhasil dibuat untuk Order ID: ${order_id}`);
-    
-    return NextResponse.json(transaction);
+  // Pindahkan inisialisasi ke dalam fungsi
+  const snap = new Midtrans.Snap({
+    isProduction: true,
+    serverKey: serverKey,
+    clientKey: clientKey
+  });
 
+  const parameter = {
+    transaction_details: {
+      order_id: order_id,
+      gross_amount: gross_amount
+    },
+    customer_details: customer_details
+  };
+  
+  try {
+    const token = await snap.createTransactionToken(parameter);
+    return NextResponse.json({ token });
   } catch (e) {
-    let errorMessage = 'Terjadi kesalahan yang tidak diketahui.';
     if (e instanceof Error) {
-        errorMessage = e.message;
+        console.error('Error creating Midtrans transaction:', e.message);
+        return NextResponse.json({ error: e.message }, { status: 500 });
     }
-    console.error('Error saat membuat token Midtrans:', errorMessage);
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: 'Unknown error occurred' }, { status: 500 });
   }
 }
