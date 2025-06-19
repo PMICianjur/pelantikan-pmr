@@ -135,7 +135,7 @@ export default function MidtransPaymentPage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    order_id: pendaftaranId.toString(),
+                    order_id: `${pendaftaranId}-${Date.now()}`,
                     gross_amount: totalBiaya,
                     customer_details: { first_name: namaPembina, phone: nomorWhatsapp, email: `${nomorWhatsapp.replace(/\D/g, '')}@email.com` }
                 }),
