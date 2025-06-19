@@ -28,15 +28,16 @@ export async function POST(request: Request) {
       clientKey: clientKey
     });
 
-    // Siapkan parameter transaksi
+    // --- PERUBAHAN DI SINI ---
+    // Siapkan parameter transaksi tanpa properti `enabled_payments`
     const parameter = {
       transaction_details: {
         order_id: order_id,
         gross_amount: gross_amount
       },
       customer_details: customer_details,
-
     };
+    // --- AKHIR PERUBAHAN ---
   
     // Buat token transaksi
     const transaction = await snap.createTransactionToken(parameter);
@@ -45,7 +46,6 @@ export async function POST(request: Request) {
     return NextResponse.json(transaction);
 
   } catch (e) {
-    // Penanganan error yang lebih baik
     let errorMessage = 'Terjadi kesalahan yang tidak diketahui.';
     if (e instanceof Error) {
         errorMessage = e.message;
