@@ -30,7 +30,7 @@ export default function AdminLoginPage() {
         <div className="text-center mb-8">
           {/* 2. Ganti tag <img> dengan komponen <Image> */}
           <Image
-            src="/logo-pmi.png"
+            src="/logo-pmi.jpg"
             alt="Logo PMI"
             width={96} // Lebar asli atau yang sesuai (w-24 -> 96px)
             height={96} // Tinggi asli atau yang sesuai (h-24 -> 96px)

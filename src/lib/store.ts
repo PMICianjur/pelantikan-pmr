@@ -1,12 +1,12 @@
 import { create } from 'zustand';
 
 // Definisikan tipe data state
-type PesertaState = {
+export type PesertaState = {
   nama_lengkap: string;
   foto_file: File | null;
   status: 'Menunggu Foto' | 'Foto Cocok' | 'Error';
 }
-type PendampingState = {
+export type PendampingState = {
   nama_lengkap: string;
 }
 
@@ -16,12 +16,15 @@ type RegistrationState = {
   namaPembina: string;
   namaSekolah: string;
   nomorWhatsapp: string;
-  kategori: string;
+  kategori: 'Wira' | 'Madya';
   // Data dari Excel
   pesertaList: PesertaState[];
   pendampingList: PendampingState[];
+  // Data Tenda & Lahan (BARU)
+  lahanDipilihId: number | null;
+
   // Fungsi untuk mengatur state
-  setData: (data: Partial<RegistrationState>) => void;
+  setData: (data: Partial<Omit<RegistrationState, 'setData' | 'reset'>>) => void;
   reset: () => void;
 }
 
@@ -33,6 +36,7 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
   kategori: 'Madya',
   pesertaList: [],
   pendampingList: [],
+  lahanDipilihId: null, // Nilai awal
   setData: (data) => set((state) => ({ ...state, ...data })),
   reset: () => set({ 
     namaPembina: '',
@@ -40,6 +44,7 @@ export const useRegistrationStore = create<RegistrationState>((set) => ({
     nomorWhatsapp: '',
     kategori: 'Madya',
     pesertaList: [],
-    pendampingList: []
+    pendampingList: [],
+    lahanDipilihId: null, // Reset juga
   }),
 }));

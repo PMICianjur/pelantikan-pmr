@@ -39,21 +39,21 @@ export default function HomePage() {
       
       {/* ===== Hero Section Dengan Background ===== */}
       <main 
-        className="relative bg-cover bg-center bg-no-repeat bg-fixed py-10 sm:py-15 lg:py-15"
+        className="relative bg-cover bg-center bg-no-repeat py-24 sm:py-32 lg:py-40"
         style={{
           // Terapkan gambar background dengan lapisan gelap untuk kontras teks
-          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('/background.jpg')`
+          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/background.jpg')`
         }}
       >
         <div className="container mx-auto px-6">
           <div className="max-w-3xl text-center mx-auto">
-            <span className="inline-block bg-red-500/20 text-white text-xs font-semibold px-3 py-1 rounded-full mb-4 backdrop-blur-sm">
+            <span className="inline-block bg-white/20 text-white text-xs font-semibold px-3 py-1 rounded-full mb-4 backdrop-blur-sm">
               PMR KABUPATEN CIANJUR - TAHUN 2025
             </span>
             {/* Ganti warna teks menjadi putih agar kontras dengan background */}
-            <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight text-red-600">
-              PELANTIKAN & PELATIHAN PMR TINGKAT MADYA DAN WIRA
-              <span className="block text-white mt-2">SE-KABUPATEN CIANJUR</span>
+            <h1 className="text-4xl lg:text-6xl font-extrabold tracking-tight text-white">
+              Pelantikan & Pelatihan PMR
+              <span className="block text-red-400 mt-2">Tingkat Wira dan Madya</span>
             </h1>
             <p className="mt-6 text-lg text-zinc-200 max-w-2xl mx-auto">
               Bentuk generasi muda yang tanggap, peduli, dan terampil. Mari bergabung dalam acara pelantikan dan pelatihan terbesar se-Kabupaten Cianjur!
