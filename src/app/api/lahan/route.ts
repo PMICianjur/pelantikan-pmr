@@ -15,14 +15,15 @@ export async function GET(request: NextRequest) {
     });
   }
 
+
   try {
     // Ambil semua lahan yang cocok dengan kategori DAN
     // memiliki kapasitas yang lebih besar atau sama dengan yang dibutuhkan
-    const { data, error } = await supabase
+ const { data, error } = await supabase
       .from('lahan')
       .select('*')
       .eq('kategori', kategori)
-      .gte('kapasitas_maks', parseInt(kapasitas));
+      .eq('kapasitas_maks', parseInt(kapasitas)); // Diubah dari .gte() menjadi .eq()
 
     if (error) {
       throw error;
