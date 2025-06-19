@@ -35,19 +35,7 @@ export async function POST(request: Request) {
         gross_amount: gross_amount
       },
       customer_details: customer_details,
-      
-      // --- BAGIAN UTAMA: Memaksa/Memprioritaskan Metode Pembayaran ---
-      // Hanya metode pembayaran dalam daftar ini yang akan muncul di popup Snap.
-      enabled_payments: [
-        "qris",           // Alias umum untuk QRIS, biasanya mencakup GoPay
-        "gopay",          // Spesifik untuk GoPay, akan menampilkan QRIS jika di mobile
-        "shopeepay",      // Menampilkan QRIS ShopeePay
-        "bca_va",         // Contoh: Virtual Account BCA
-        "bni_va",         // Contoh: Virtual Account BNI
-        "mandiri_va",     // Contoh: Virtual Account Mandiri
-        "indomaret",      // Contoh: Pembayaran via Indomaret
-        "alfamart"        // Contoh: Pembayaran via Alfamart
-      ]
+
     };
   
     // Buat token transaksi
