@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { useRegistrationStore } from '@/lib/store';
@@ -42,7 +42,7 @@ export default function MidtransPaymentPage() {
         lahanDipilihId, biayaSewaTenda, totalBiaya, reset 
     } = useRegistrationStore();
 
-    // State lokal untuk halaman ini
+    // State lokal khusus untuk halaman ini
     const [loading, setLoading] = useState(false);
     const [statusText, setStatusText] = useState('Mempersiapkan...');
     const [pageReady, setPageReady] = useState(false);
@@ -60,7 +60,7 @@ export default function MidtransPaymentPage() {
         if (!namaSekolah) {
             const timer = setTimeout(() => {
                 if (!useRegistrationStore.getState().namaSekolah) {
-                    alert("Data pendaftaran tidak ditemukan. Anda akan diarahkan kembali ke halaman pendaftaran.");
+                    alert("Data pendaftaran tidak ditemukan. Anda akan diarahkan kembali.");
                     router.push('/daftar');
                 } else {
                     setPageReady(true);
@@ -81,84 +81,81 @@ export default function MidtransPaymentPage() {
         setError('');
 
         try {
-            // LANGKAH A: Upload semua foto peserta ke folder sementara untuk mendapatkan URL
-            setStatusText('Mengunggah file foto...');
-            const pesertaDenganFotoUrl = await Promise.all(
-                pesertaList.map(async (peserta) => {
-                    if (!peserta.foto_file) {
-                        return { nama_lengkap: peserta.nama_lengkap, foto_url: null };
-                    }
+            // LANGKAH A: Simpan semua data awal ke database untuk mendapatkan ID pendaftaran (order_id)
+            setStatusText('Menyimpan data pendaftaran...');
+            const { data: pendaftaranData, error: pendaftaranError } = await supabase
+                .from('pendaftaran')
+                .insert({
+                    nama_pembina: namaPembina, nama_sekolah: namaSekolah, nomor_whatsapp: nomorWhatsapp, kategori,
+                    jumlah_peserta: pesertaList.length, jumlah_pendamping: pendampingList.length,
+                    biaya_sewa_tenda: biayaSewaTenda, total_biaya_keseluruhan: totalBiaya,
+                    status: 'PENDING_PAYMENT'
+                }).select('id').single();
 
-                    const fotoPath = `pending-photos/${Date.now()}-${peserta.foto_file.name}`;
-                    const { error: uploadError } = await supabase.storage.from('file-peserta').upload(fotoPath, peserta.foto_file);
-                    if (uploadError) throw new Error(`Gagal mengunggah foto untuk ${peserta.nama_lengkap}: ${uploadError.message}`);
-                    
-                    const { data: urlData } = supabase.storage.from('file-peserta').getPublicUrl(fotoPath);
-                    return { nama_lengkap: peserta.nama_lengkap, foto_url: urlData.publicUrl };
-                })
-            );
-
-            // LANGKAH B: Siapkan paket data (payload) lengkap
-            setStatusText('Membuat data transaksi...');
-            const payload = {
-                namaPembina, namaSekolah, nomorWhatsapp, kategori, lahanDipilihId,
-                pesertaList: pesertaDenganFotoUrl, // Gunakan list yang sudah berisi URL foto
-                pendampingList,
-                biayaSewaTenda, totalBiaya,
-            };
-
-            // LANGKAH C: Simpan payload ke tabel `transaksi_pending`
-            const { data: pendingData, error: pendingError } = await supabase
-                .from('transaksi_pending')
-                .insert({ payload: payload, total_biaya: totalBiaya })
-                .select('id')
-                .single();
+            if (pendaftaranError) throw new Error(`Gagal menyimpan pendaftaran awal: ${pendaftaranError.message}`);
+            if (!pendaftaranData?.id) throw new Error('Gagal mendapatkan ID pendaftaran.');
             
-            if (pendingError) throw new Error(`Gagal menyimpan data sementara: ${pendingError.message}`);
-            if (!pendingData) throw new Error('Gagal mendapatkan ID transaksi dari database.');
-            
-            const order_id = pendingData.id;
+            const pendaftaranId = pendaftaranData.id;
 
-            // LANGKAH D: Request token pembayaran ke Midtrans melalui backend kita
+            setStatusText('Menyiapkan data kavling...');
+            // Proses booking lahan
+            if (lahanDipilihId) {
+                 const { error: lahanError } = await supabase.from('lahan').update({ pendaftaran_id: pendaftaranId }).eq('id', lahanDipilihId);
+                 if (lahanError) {
+                    // Jika booking gagal, batalkan pendaftaran yg baru dibuat
+                    await supabase.from('pendaftaran').delete().eq('id', pendaftaranId);
+                    throw new Error('Gagal memesan lahan. Kemungkinan sudah dipesan orang lain. Mohon ulangi pendaftaran.');
+                 }
+            }
+
+            setStatusText('Mengunggah foto peserta...');
+            // Proses data Peserta
+            for (const peserta of pesertaList) {
+                if (!peserta.foto_file) continue;
+                const fotoPath = `peserta/${pendaftaranId}/${peserta.nama_lengkap.replace(/ /g, '_')}.jpg`;
+                await supabase.storage.from('file-peserta').upload(fotoPath, peserta.foto_file);
+                const { data: urlData } = supabase.storage.from('file-peserta').getPublicUrl(fotoPath);
+                await supabase.from('peserta').insert({
+                    nama_lengkap: peserta.nama_lengkap, foto_url: urlData.publicUrl, pendaftaran_id: pendaftaranId, nama_sekolah: namaSekolah,
+                });
+            }
+
+            setStatusText('Menyimpan data pendamping...');
+            // Proses data Pendamping
+            if (pendampingList.length > 0) {
+                const pendampingToInsert = pendampingList.map(p => ({
+                    nama_lengkap: p.nama_lengkap, pendaftaran_id: pendaftaranId, nama_sekolah: namaSekolah
+                }));
+                await supabase.from('pendamping').insert(pendampingToInsert);
+            }
+            
             setStatusText('Menghubungi gerbang pembayaran...');
+            // LANGKAH B: Request token transaksi ke backend kita
             const response = await fetch('/api/create-midtrans-transaction', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    order_id: order_id,
+                    order_id: pendaftaranId.toString(),
                     gross_amount: totalBiaya,
-                    customer_details: {
-                        first_name: namaPembina,
-                        phone: nomorWhatsapp,
-                        email: `${nomorWhatsapp.replace(/\D/g, '')}@email.com` // Email dummy
-                    }
+                    customer_details: { first_name: namaPembina, phone: nomorWhatsapp, email: `${nomorWhatsapp.replace(/\D/g, '')}@email.com` }
                 }),
             });
-            const { token, error: tokenError } = await response.json();
-            if (tokenError) throw new Error(`Gagal mendapatkan token pembayaran: ${tokenError}`);
-            
-            // LANGKAH E: Buka popup Midtrans Snap
-            setLoading(false); 
-            window.snap.pay(token, {
-                onSuccess: (result: MidtransPayResult) => {
-                    console.log('Payment Success:', result);
-                    reset();
-                    router.push('/status/sukses');
-                },
-                onPending: (result: MidtransPayResult) => {
-                    console.log('Payment Pending:', result);
-                    alert("Pembayaran Anda sedang diproses. Silakan selesaikan pembayaran.");
-                    reset();
-                    router.push('/');
-                },
-                onError: (result: MidtransPayResult) => {
-                    console.error('Payment Error:', result);
-                    setError('Pembayaran gagal atau dibatalkan. Silakan coba lagi.');
-                },
-                onClose: () => {
-                    if(!loading) setError('Anda menutup jendela pembayaran sebelum selesai.');
-                }
-            });
+
+            const transactionResult = await response.json();
+
+            if (transactionResult.token) {
+                setLoading(false); // Berhenti loading agar popup bisa diinteraksi
+                window.snap.pay(transactionResult.token, {
+                    onSuccess: (result) => { console.log('Payment Success:', result); reset(); router.push('/status/sukses'); },
+                    onPending: (result) => { console.log('Payment Pending:', result); alert("Pembayaran Anda sedang diproses."); reset(); router.push('/'); },
+                    onError: (result) => { console.error('Payment Error:', result); setError('Pembayaran gagal atau dibatalkan.'); },
+                    onClose: () => { if(!loading) { setError('Anda menutup jendela pembayaran sebelum selesai.'); } }
+                });
+            } else if (transactionResult.error) {
+                throw new Error(`Gagal membuat sesi pembayaran: ${transactionResult.error}`);
+            } else {
+                throw new Error('Menerima respons tidak valid dari server.');
+            }
 
         } catch (err) {
             if (err instanceof Error) { setError(`Terjadi kesalahan: ${err.message}`); } 
@@ -203,7 +200,7 @@ export default function MidtransPaymentPage() {
                         disabled={loading} 
                         className="w-full inline-flex justify-center items-center gap-2 bg-zinc-900 text-white p-4 rounded-xl font-semibold text-base hover:bg-red-600 transition-all duration-300 disabled:bg-zinc-400 disabled:cursor-not-allowed"
                     >
-                        {loading ? <Loader2 className="animate-spin" /> : <Wallet />}
+                        {loading ? <><Loader2 className="animate-spin" /> {statusText}</> : <Wallet />}
                         {loading ? statusText : 'Bayar Sekarang dengan Midtrans'}
                     </button>
                     <div className="text-center text-xs text-zinc-400 flex items-center justify-center gap-2">
