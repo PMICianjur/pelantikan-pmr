@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   
   // Pindahkan inisialisasi ke dalam fungsi
   const snap = new Midtrans.Snap({
-    isProduction: false,
+    isProduction: true,
     serverKey: serverKey,
     clientKey: clientKey
   });
