@@ -7,17 +7,34 @@ import { useRegistrationStore } from '@/lib/store';
 import { Loader2, ShieldCheck, Wallet, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
 
-// Memberitahu TypeScript tentang adanya object 'snap' di object 'window'
+// Tipe data spesifik untuk hasil dan opsi Midtrans
+interface MidtransPayResult {
+    status_code: string;
+    status_message: string;
+    transaction_id: string;
+    order_id: string;
+    gross_amount: string;
+    payment_type: string;
+    transaction_time: string;
+    transaction_status: string;
+}
+interface SnapPayOptions {
+    onSuccess?: (result: MidtransPayResult) => void;
+    onPending?: (result: MidtransPayResult) => void;
+    onError?: (result: MidtransPayResult) => void;
+    onClose?: () => void;
+}
+interface MidtransSnap {
+    pay: (token: string, options?: SnapPayOptions) => void;
+}
 declare global {
     interface Window {
-        snap: any;
+        snap: MidtransSnap;
     }
 }
 
 export default function MidtransPaymentPage() {
     const router = useRouter();
-    
-    // Ambil semua data yang relevan dari store Zustand
     const { 
         namaPembina, namaSekolah, nomorWhatsapp, kategori, pesertaList, pendampingList, 
         lahanDipilihId, biayaSewaTenda, totalBiaya, reset 
@@ -28,40 +45,32 @@ export default function MidtransPaymentPage() {
     const [error, setError] = useState('');
 
     useEffect(() => {
-        // Load script Midtrans Snap secara dinamis
         const script = document.createElement('script');
-        script.src = "https://app.sandbox.midtrans.com/snap/snap.js"; // Ganti ke URL produksi jika sudah live
+        script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
         script.setAttribute('data-client-key', process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY!);
         script.async = true;
         document.body.appendChild(script);
 
-        // Cek apakah data pendaftaran ada di store. Jika tidak (karena refresh), arahkan kembali.
         if (!namaSekolah) {
             const timer = setTimeout(() => {
                 if (!useRegistrationStore.getState().namaSekolah) {
-                    alert("Data pendaftaran tidak ditemukan. Anda akan diarahkan kembali ke halaman awal.");
+                    alert("Data pendaftaran tidak ditemukan. Anda akan diarahkan kembali.");
                     router.push('/daftar');
-                } else {
-                    setPageReady(true);
-                }
+                } else { setPageReady(true); }
             }, 500);
             return () => clearTimeout(timer);
         } else {
             setPageReady(true);
         }
 
-        return () => {
-            // Bersihkan script saat komponen unmount
-            document.body.removeChild(script);
-        };
+        return () => { if(script.parentNode) document.body.removeChild(script); };
     }, [namaSekolah, router]);
 
- const handleBayar = async () => {
+    const handleBayar = async () => {
         setLoading(true);
         setError('');
 
         try {
-            // LANGKAH A: Simpan semua data awal ke database
             const { data: pendaftaranData, error: pendaftaranError } = await supabase
                 .from('pendaftaran')
                 .insert({
@@ -71,21 +80,20 @@ export default function MidtransPaymentPage() {
                     status: 'PENDING_PAYMENT'
                 }).select('id').single();
 
-            // --- PERBAIKAN DI SINI ---
-            // Pengecekan tegas untuk memastikan kita mendapatkan ID sebelum melanjutkan.
-            if (pendaftaranError) throw new Error(`Gagal menyimpan pendaftaran utama: ${pendaftaranError.message}`);
-            if (!pendaftaranData?.id) {
-                throw new Error('Gagal mendapatkan ID pendaftaran setelah menyimpan data awal.');
-            }
-            
-            // Karena sudah melewati pengecekan, pendaftaranId di sini DIJAMIN berupa angka.
+            if (pendaftaranError) throw new Error(`Gagal menyimpan pendaftaran awal: ${pendaftaranError.message}`);
+            if (!pendaftaranData?.id) throw new Error('Gagal mendapatkan ID pendaftaran.');
             const pendaftaranId = pendaftaranData.id;
-            // --- AKHIR PERBAIKAN ---
 
-            // Proses data terkait lainnya...
+            // --- PERBAIKAN 1: Logika untuk booking lahan ditambahkan kembali ---
             if (lahanDipilihId) {
-                await supabase.from('lahan').update({ pendaftaran_id: pendaftaranId }).eq('id', lahanDipilihId);
+                 const { error: lahanError } = await supabase.from('lahan').update({ pendaftaran_id: pendaftaranId }).eq('id', lahanDipilihId);
+                 if (lahanError) {
+                    // Jika booking gagal (misal: sudah dipesan), batalkan pendaftaran yg baru dibuat
+                    await supabase.from('pendaftaran').delete().eq('id', pendaftaranId);
+                    throw new Error('Gagal memesan lahan. Kemungkinan sudah dipesan orang lain. Mohon ulangi pendaftaran.');
+                 }
             }
+
             for (const peserta of pesertaList) {
                 if (!peserta.foto_file) continue;
                 const fotoPath = `peserta/${pendaftaranId}/${peserta.nama_lengkap.replace(/ /g, '_')}.jpg`;
@@ -102,39 +110,50 @@ export default function MidtransPaymentPage() {
                 await supabase.from('pendamping').insert(pendampingToInsert);
             }
             
-            // LANGKAH B: Request token transaksi ke backend kita
             const response = await fetch('/api/create-midtrans-transaction', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     order_id: pendaftaranId.toString(),
                     gross_amount: totalBiaya,
-                    customer_details: {
-                        first_name: namaPembina,
-                        phone: nomorWhatsapp,
-                        email: `${nomorWhatsapp}@email.com` // Email dummy jika tidak ada
-                    }
+                    customer_details: { first_name: namaPembina, phone: nomorWhatsapp, email: `${nomorWhatsapp.replace(/\D/g, '')}@email.com` }
                 }),
             });
-
             const { token, error: tokenError } = await response.json();
             if (tokenError) throw new Error(`Gagal mendapatkan token pembayaran: ${tokenError}`);
 
-            // LANGKAH C: Buka popup pembayaran Midtrans
+            // --- PERBAIKAN 2: Komentar eslint-disable dihapus ---
             window.snap.pay(token, {
-                onSuccess: (result: any) => { reset(); router.push('/status/sukses'); },
-                onPending: (result: any) => { reset(); router.push('/'); },
-                onError: (result: any) => { setError('Pembayaran gagal atau dibatalkan.'); },
-                onClose: () => { setError('Anda menutup jendela pembayaran sebelum selesai.'); }
+                onSuccess: (result: MidtransPayResult) => {
+                    console.log('Payment Success:', result);
+                    reset();
+                    router.push('/status/sukses');
+                },
+                onPending: (result: MidtransPayResult) => {
+                    console.log('Payment Pending:', result);
+                    alert("Pembayaran Anda sedang diproses. Silakan selesaikan pembayaran.");
+                    reset();
+                    router.push('/');
+                },
+                onError: (result: MidtransPayResult) => {
+                    console.error('Payment Error:', result);
+                    setError('Pembayaran gagal atau dibatalkan.');
+                },
+                onClose: () => {
+                    if(!loading) {
+                        setError('Anda menutup jendela pembayaran sebelum selesai.');
+                    }
+                }
             });
 
         } catch (err) {
             if (err instanceof Error) { setError(`Terjadi kesalahan: ${err.message}`); } 
             else { setError('Terjadi kesalahan yang tidak diketahui.'); }
-        } finally {
-            setLoading(false);
-        }
+            setLoading(false); // Pastikan loading berhenti jika ada error sebelum snap.pay
+        } 
+        // Jangan set loading ke false di sini lagi, biarkan callback Midtrans yang mengontrol
     };
+    
     const formatRupiah = (angka: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
 
     if (!pageReady) {
@@ -160,8 +179,17 @@ export default function MidtransPaymentPage() {
                         <p className="text-sm font-medium text-zinc-600 uppercase tracking-wider">Total Tagihan</p>
                         <p className="text-5xl font-bold text-red-600 tracking-tight mt-1">{formatRupiah(totalBiaya)}</p>
                     </div>
-                    {error && <div className="flex items-center gap-2 p-3 text-sm text-red-700 bg-red-100 rounded-lg"><AlertCircle size={16}/><span>{error}</span></div>}
-                    <button onClick={handleBayar} disabled={loading} className="w-full inline-flex justify-center items-center gap-2 bg-zinc-900 text-white p-4 rounded-xl font-semibold text-base hover:bg-red-600 transition-all duration-300 disabled:bg-zinc-400 disabled:cursor-not-allowed">
+                    {error && 
+                        <div className="flex items-center gap-2 p-3 text-sm text-red-700 bg-red-100 rounded-lg">
+                            <AlertCircle size={16}/>
+                            <span>{error}</span>
+                        </div>
+                    }
+                    <button 
+                        onClick={handleBayar} 
+                        disabled={loading} 
+                        className="w-full inline-flex justify-center items-center gap-2 bg-zinc-900 text-white p-4 rounded-xl font-semibold text-base hover:bg-red-600 transition-all duration-300 disabled:bg-zinc-400 disabled:cursor-not-allowed"
+                    >
                         {loading ? <Loader2 className="animate-spin" /> : <Wallet />}
                         {loading ? 'Mempersiapkan Pembayaran...' : 'Bayar Sekarang dengan Midtrans'}
                     </button>

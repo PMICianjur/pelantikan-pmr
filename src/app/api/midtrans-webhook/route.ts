@@ -2,41 +2,43 @@ import { NextResponse } from 'next/server';
 import Midtrans from 'midtrans-client';
 import { createClient } from '@supabase/supabase-js';
 
-// Buat Supabase client khusus untuk Route Handler ini
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// HAPUS inisialisasi Supabase client dari sini
 
 export async function POST(request: Request) {
   const notification = await request.json();
 
-  // --- PERBAIKAN DIMULAI DI SINI ---
   const serverKey = process.env.MIDTRANS_SERVER_KEY;
   const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY;
 
-  // Pengecekan environment variable
   if (!serverKey || !clientKey) {
     console.error("Missing Midtrans environment variables");
     return NextResponse.json({ error: "Server configuration error." }, { status: 500 });
   }
-
+  
+  // Inisialisasi Midtrans Snap di dalam fungsi
   const snap = new Midtrans.Snap({
     isProduction: false,
-    serverKey: serverKey, // Sekarang TypeScript yakin ini adalah string
-    clientKey: clientKey  // Sekarang TypeScript yakin ini adalah string
+    serverKey: serverKey,
+    clientKey: clientKey
   });
-  // --- AKHIR PERBAIKAN ---
 
   try {
     const statusResponse = await snap.transaction.notification(notification);
-    let orderId = statusResponse.order_id;
-    let transactionStatus = statusResponse.transaction_status;
-    let fraudStatus = statusResponse.fraud_status;
+    const orderId = statusResponse.order_id;
+    const transactionStatus = statusResponse.transaction_status;
+    const fraudStatus = statusResponse.fraud_status;
 
-    console.log(`Transaction notification received. Order ID: ${orderId}, Transaction status: ${transactionStatus}, Fraud status: ${fraudStatus}`);
+    console.log(`Webhook: Notifikasi diterima untuk Order ID ${orderId}`);
 
     if (transactionStatus == 'settlement' && fraudStatus == 'accept') {
+      
+      // --- PERBAIKAN DI SINI: Inisialisasi Supabase Client dipindahkan ke dalam ---
+      const supabaseAdmin = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+      
+      console.log(`Webhook: Memperbarui status untuk Order ID ${orderId} menjadi PAID`);
       const { error } = await supabaseAdmin
           .from('pendaftaran')
           .update({ status: 'PAID' })

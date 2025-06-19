@@ -4,7 +4,6 @@ import Midtrans from 'midtrans-client';
 export async function POST(request: Request) {
   const { order_id, gross_amount, customer_details } = await request.json();
 
-  // --- PERBAIKAN DIMULAI DI SINI ---
   const serverKey = process.env.MIDTRANS_SERVER_KEY;
   const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY;
 
@@ -12,13 +11,13 @@ export async function POST(request: Request) {
     console.error("Missing Midtrans environment variables");
     return NextResponse.json({ error: "Server configuration error." }, { status: 500 });
   }
-
+  
+  // Pindahkan inisialisasi ke dalam fungsi
   const snap = new Midtrans.Snap({
     isProduction: false,
-    serverKey: serverKey, // Sekarang TypeScript yakin ini adalah string
-    clientKey: clientKey  // Sekarang TypeScript yakin ini adalah string
+    serverKey: serverKey,
+    clientKey: clientKey
   });
-  // --- AKHIR PERBAIKAN ---
 
   const parameter = {
     transaction_details: {
